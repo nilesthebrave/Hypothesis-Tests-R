@@ -1,0 +1,350 @@
+---
+title: "Assignment 8"
+author: "Glenn Niles"
+date: '10/27/18'
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load necessary packages here.
+```{r}
+library(readr)
+library(dplyr)
+library(ggformula)
+```
+
+## Problem 1:  Analyzing A Mourner
+
+Can we use statistical analysis of word lengths to identify the author of an anonymous essay?  In Homework 7, you wrote a Python function that counted the lengths of words in the 1770 essay by "A Mourner".  Analysis of other articles published in The Boston Gazette and Country Journal in early 1770 finds that John Hancock wrote a 121-word article with a mean word length of 4.69 and standard deviation of 2.60. 
+
+a. We want to use R to assess whether it is plausible that John Hancock was A Mourner, based on his mean word length.  **Explain** why a 2-sided, 2-sample t-test is appropriate for this.
+
+A 2-sided, 2-sample, t-test is appropriate because it's used for comparing the means of two independent groups, since we are comparing John Hanckock's 4.69 mean length and the mean length of "A Mourner"
+
+b. **Explain** why the `t.test()` function is not appropriate for the data we have available.
+
+I think t.test() isn't appropriate because we need to know the standard error of the essays to account for differences in length and we don't have the raw data from John Hancock's letters.
+
+c. Write your own function for performing a 2-sided, 2-sample t-test for equality of means when the raw data are not available.  Use the information provided in `T-test formulas.pdf`. 
+
+- Use additional functions as needed to organize your work.
+- Your funct717ion(s) should not use any variables from the global environment.
+
+```{r}
+# Function for two sample t-test using pdf
+TestStatistic <- function(x,y, s1, s2, n1, n2){
+  standardError <- sqrt(((s1**2)/n1) + ((s2**2)/ n2))
+  t = (x-y)/standardError
+  numerator = (((s1**2/n1))+(((s2**2)/n2)**2))
+  denominator = ((((s1**2/n1)**2)/(n1-1)) + (((s2**2/n2)**2)/(n2-1)))
+  df = numerator/denominator
+  
+  p = 2*pt(-abs(t), df)
+  
+  return(p)
+}
+```
+
+d. Test your function by comparing it to t.test() on a pair of samples.  You may wish to use `rnorm()` to generate random data from a normal distribution.  If the p-value from your function doesn't match the p-value from `t.test()`, then revise your code from part c.
+
+```{r}
+a = rnorm(121, 4.69, 2.60)
+b = rnorm(121, 4.69, 2.60)
+ma = mean(a)
+mb = mean(b)
+sa = sd(a)
+sb = sd(b)
+tCustom = TestStatistic(ma, mb, sa, sb, 121, 121)
+tStandard = t.test(a,b, alternative="two.sided")$p.value
+tCustom
+tStandard
+```
+
+e. Apply your function to assess whether it is plausible that Hancock was A Mourner.  
+
+```{r}
+mourner = c(3, 7, 8, 3, 7, 3, 3, 6, 2, 3, 3, 2, 3, 4, 3, 8, 10, 2, 3, 3, 7, 4, 2, 10, 6, 3,
+ 4, 9, 3, 6, 4, 2, 4, 2, 6, 4, 3, 8, 5, 2, 5, 4, 8, 11, 2, 6, 4, 4, 3, 3, 7, 2,
+ 7, 3, 4, 2, 11, 2, 6, 5, 4, 8, 2, 3, 7, 2, 4, 6, 4, 3, 5, 6, 2, 3, 5, 10, 5, 6,
+ 5, 4, 8, 8, 8, 2, 3, 8, 7, 2, 3, 6, 3, 6, 2, 3, 9, 3, 6, 4, 3, 3, 7, 3, 5, 2,
+ 9, 3, 8, 8, 2, 6, 4, 3, 4, 5, 2, 3, 3, 4, 2, 7, 5, 6, 8, 4, 3, 7, 6, 6, 5, 2,
+ 3, 6, 12, 7, 6, 2, 5, 5, 5, 6, 2, 5, 2, 3, 1, 7, 6, 3, 5, 4, 4, 1, 6, 3, 1, 7)
+meanMourn = mean(mourner)
+standardMourn = sd(mourner)
+sumMourn = 157 # found length of Mourner from Python Assignment 7 code
+pvalue = TestStatistic(4.69, meanMourn, 2.60, standardMourn, 121, sumMourn)
+pvalue
+```
+**Write** your conclusion as a sentence.
+
+The p-value returned by my fucntion is really high. I have to reject the alternative hypothesis. This does not mean that Hancock wrote "A Mourner" but it is plausible that he did based on my results.
+
+- Note:  The null hypothesis for a 2-sample t-test of this question is
+H_0:  mu_Mourner = mu_Hancock
+i.e., that A Mourner and Hancock have the same mean word length.  In other words, the null hypothesis is that it is plausible that Hancock was A Mourner.
+
+## Problem 2:  Identifying the language of an encrypted text
+
+### Problem overview
+
+2.  In homework 5, you counted the frequencies of letters in two encrypted texts.  In this problem, you will use statistical analysis to identify the language in which the text was written, and decrypt it.
+
+Here's the basic idea:  Suppose that the language FakeEnglish has just 2 letters, E and S, with E occurring 55% of the time and S occurring 45% of the time.  Also, suppose that the language FakeWelsh also has just 2 letters, A (occurring 90% of the time) and M (occurring 10% of the time).  Suppose your encrypted text uses the letter V 430 times and the letter X 570 times.  Which language do you think it came from?
+
+The encrypted text probably came from FakeEnglish, because the frequencies of each letter (43% and 57%) are much closer to the frequencies in FakeEnglish than to FakeWelsh.  We can also say that the encrypted letter X probably represents the FakeEnglish letter E, and encrypted letter V probably represents FakeEnglish letter S.  It doesn't matter that V and X don't occur in FakeEnglish or FakeWelsh, because the encrypted text is encrypted--it uses different letters to represent each letter in the language it came from.
+
+So, our overall strategy to identify the language of each text will be as follows:
+
+1. Put the encrypted letter frequencies in order of increasing frequency.  We will guess that the most common letter in the encrypted text represents the most common letter in the real language (English or Welsh), the 2nd-most common letter represents the 2nd-most common letter, and so on.  This is just like our guess in the example above, that X probably represents E.
+
+2. Use a chi-squared goodness-of-fit test to test whether the frequencies in the encrypted data are consistent with the proportions in English or Welsh.
+
+- You may need to combine some letter categories to satisfy the assumptions of the chi-squared goodness-of-fit test.
+
+### Tasks to complete
+
+a. The file Letter Frequencies.csv contains data on the frequencies of letters in different languages.  (Source:  http://www.sttmedia.com/characterfrequency-english and http://www.sttmedia.com/characterfrequency-welsh, accessed 21 August 2015.  Used by permission of Stefan Trost.)  Read these data into R. 
+
+```{r}
+frequencies = read_csv("Letter Frequencies.csv")
+```
+
+b. Make bar graphs of the frequencies in English and Welsh.  Use the code
+
+`mutate(Letter = reorder(Letter, English))`
+
+(and similarly for Welsh)
+to sort the bars in increasing order of letter frequency.
+```{r}
+Eng <- frequencies
+Eng%>%
+mutate(Letter = reorder(Letter, English)) %>%
+gf_col(English ~ Letter)
+```
+
+```{r}
+Wel <- frequencies
+Wel%>%
+mutate(Letter = reorder(Letter, Welsh)) %>%
+gf_col(Welsh ~ Letter)
+```
+
+c. Read the letter frequencies from encryptedA into R.  Make a barplot of the letter frequencies, with the letters listed in order of increasing frequency. 
+```{r}
+Encrypted_A = read_csv("EncryptedA.csv")
+```
+
+
+```{r}
+EncA <- Encrypted_A
+EncA%>%
+mutate(Letters = reorder(Letters, Frequency)) %>%
+gf_col(Frequency ~ Letters)
+```
+
+d.  Based on the **shape** of the plots in parts b and c, which language do you think encryptedA came from?  Explain.
+
+I think this one is in Welsh. There are 5 letters that are unused in Welsh and there are 6 letters that are unused in EncryptedA.
+
+(Note:  The order of the letters along the horizontal axis of each plot will be quite different, because the plots from part b show the frequencies in plain English or plain Welsh, and the plot from part c shows the frequencies in the encrypted text.  So, you should ignore what letter is written below each bar when answering this question.  Instead, look at things like how steeply the bars grow from the least-common letter to the most-common letter.)
+
+e. Now that we have a visual understanding of the data, we will proceed with a hypothesis test.  Start by putting the frequencies of letters in English in increasing order, and saving the results in a variable (either the same data frame or a new vector).  Display the first few entries of that variable to verify that it is in increasing order.
+
+- If you are using `dplyr`, the function `arrange` may be useful.
+- If you are using the base R installation, the function `sort` may be useful.
+
+```{r}
+E_arrange <- arrange(Eng, English)
+head(E_arrange)
+```
+
+f. Next, put the letter frequencies of encryptedA in increasing order, and save the results in a variable (either the same data frame or a new vector).  Display the first few entries of that variable to verify that it is in increasing order.
+
+```{r}
+EncA_arrange <- arrange(EncA, Frequency)
+head(EncA_arrange)
+```
+
+- Note that homework 5 asked you to include all 26 letters in the frequency file (even if some letters had a frequency of 0) and no punctuation.  Verify that you have exactly 26 frequencies of letters in encryptedA.
+
+g. **Write** the null and alternative hypotheses for a chi-squared Goodness of Fit test of this question.
+
+H_0: The distribution in "Letter Frequencies.csv" is the probability distribution for the text in file A
+H_a: At least one proportion of letter frequencies in EncryptedA differs from the proportions in "Letter Frequencies.csv" for the English language.
+
+h.	Use R to conduct the chi-squared Goodness of Fit test, and store the results in the variable `test`.
+```{r}
+test <- chisq.test(EncA_arrange$Frequency, p=E_arrange$English)
+```
+
+i. View the contents of `test$expected`.  
+```{r}
+test$expected
+```
+Notice that some of the expected frequencies are below the threshold for the chi-squared test to be appropriate.  Use the function you wrote in Homework 3, problem 2e to combine the frequencies in `LetterFreqs$English` so that the values in `test$expected` are greater than or equal to the threshold.  Also combine counts of letters from encryptedA.txt to correspond with making the values in `test$expected` be greater than or equal to the threshold.
+
+- Note that all three of the vectors `LetterFreqs$English`, `test$expected`, and `encryptedA$count` should be in increasing order.
+- After the due date for Homework 3 has passed and you have submitted your own work for Homework 3, you are welcome to view your classmates' pull requests for Homework 3 to see how they solved problem 2e.
+```{r}
+AddElement <- function(vector,n){
+  addition <- sum(vector[1:n])
+  newVector <- c(addition, vector[n+1:(length(vector)-n)])
+  return(newVector)
+}
+```
+
+```{r}
+AnalyzeVector = function(vector, threshold=5){
+    n= 0
+    for(x in vector){
+      if(x < threshold){
+        n = n+1
+      }
+    }
+    return(n)
+}
+```
+
+
+```{r}
+CombineVector = function(x,y,threshold=5){
+  x = AddElement(x,AnalyzeVector(y,threshold))
+  
+  return(x)
+}
+```
+
+```{r}
+combined_Eng_Freq = CombineVector(E_arrange$English, test$expected)
+combined_EncA_Freq = CombineVector(EncA_arrange$Frequency, test$expected)
+```
+
+j. Repeat the chi-squared goodness-of-fit test with your combined-category data.
+```{r}
+test2 <- chisq.test(combined_EncA_Freq, p=combined_Eng_Freq)
+```
+
+```{r}
+test2
+```
+
+```{r}
+# EncA for Welsh
+WelArrange <- arrange(Wel, Welsh)
+head(WelArrange)
+```
+
+```{r}
+test_aw <- chisq.test(EncA_arrange$Frequency, p=WelArrange$Welsh)
+```
+
+```{r}
+combined_Wel_Freq <- CombineVector(WelArrange$Welsh, test_aw$expected)
+combined_Wel_Freq <- AddElement(combined_Wel_Freq, 2)
+combined_EncAWel_Freq <- CombineVector(EncA_arrange$Frequency, test_aw$expected)
+combined_EncAWel_Freq <- AddElement(combined_EncAWel_Freq,2)
+
+```
+
+```{r}
+test_aw2 <- chisq.test(combined_EncAWel_Freq, p=combined_Wel_Freq)
+test_aw2
+```
+
+```{r}
+Encrypted_B <-read_csv("encryptedB.csv")
+```
+
+```{r}
+EncB <- Encrypted_B
+EncB%>%
+mutate(Letters = reorder(Letters, Frequency)) %>%
+gf_col(Frequency ~ Letters)
+```
+
+```{r}
+EncB_arrange <- arrange(EncB, Frequency)
+head(EncB_arrange)
+```
+
+```{r}
+testBeng <- chisq.test(EncB_arrange$Frequency, p=E_arrange$English)
+```
+
+```{r}
+testBeng$expected
+```
+
+```{r}
+combined_Eng_FreqB = CombineVector(E_arrange$English, testBeng$expected)
+combined_EncB_Freq = CombineVector(EncB_arrange$Frequency, testBeng$expected)
+```
+
+```{r}
+testBeng2 <- chisq.test(combined_EncB_Freq, p=combined_Eng_FreqB)
+```
+
+```{r}
+testBeng2
+```
+
+```{r}
+test_bw <- chisq.test(EncB_arrange$Frequency, p=WelArrange$Welsh)
+test_bw$expected
+```
+
+```{r}
+combined_Wel_FreqB = CombineVector(WelArrange$Welsh, test_bw$expected)
+combined_Wel_FreqB = AddElement(combined_Wel_FreqB, 2)
+
+combined_EncB_FreqW = CombineVector(EncB_arrange$Frequency, test_bw$expected)
+combined_EncB_FreqW = AddElement(combined_EncB_FreqW, 2)
+```
+
+```{r}
+testbw2 <- chisq.test(combined_EncB_FreqW, p=combined_Wel_FreqB)
+testbw2
+```
+
+-	If you still get the warning message, "Chi-squared approximation may be incorrect," one of two things has happened:
+1.	You did not combine enough categories in step i, or
+2.	You are using the wrong syntax for the chi-squared Goodness of Fit test.
+
+    -	Check that the degrees of freedom (df) are 1 less than the number of categories you used.  If the degrees of freedom are > 100, then double-check the syntax demonstrated in the Goodness of Fit video.
+    
+-	If either of these things is true, your results will not be reliable.
+
+k.	Write your conclusion in the context of the problem.
+
+Since the p-value is 0.002945 is very low we reject the null hypothesis. EncryptedA is in Welsh
+
+
+-	Note that the null hypothesis is that the observed counts of the most-frequent letter, 2nd-most frequent letter, etc. are consistent with the theoretical frequencies.  Therefore, the null hypothesis is that the text is an encrypted piece of writing in English.
+
+L.	Repeat steps h-k for Welsh, and then repeat for both languages for encryptedB.  (It may help to use functions or `for` loops to help you organize your code.)  Fill in the p-values you get in place of the ???? in the following table:
+
+```{r table2, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+tabl <- "  
+| Text        |   English   |    Welsh    |\n
+|-------------|-------------|-------------|\n
+| EncryptedA  |    0.002945 |    0.5736   |\n
+| EncryptedB  |    0.7146   |  5.414e-05  |\n
+"
+cat(tabl) # output the table in a format good for HTML/PDF/docx conversion
+```
+		
+
+m.	Based on the hypothesis tests, which text do you think came from which language?  
+
+EncryptedA is in Welsh and EncryptedB is in English
+
+-	This should be a reasonably clear decision.  If all 4 of your p-values are near 2*10^(-16), or all 4 are near 0.5, double-check your work in steps h-j.
+
+n.	Optional:  Try to decrypt the English text.  Simon Singh's Black Chamber website (http://www.simonsingh.net/The_Black_Chamber/substitutioncrackingtool.html) will automatically substitute letters for you, so you can test different possibilities for what English plaintext letter is represented by each letter in the ciphertext.  Start by substituting the letter E for the most common letter in the ciphertext.  Then use frequencies of letters in the ciphertext, common patterns of letters, and experimentation to determine other substitutions.
+
+ALAN TURING WAS A BRITISH PIONEERING COMPUTER SCIENTIST MATHEMATICIAN LOGICIAN CRYPTANALYST AND THEORETICAL BIOLOGIST HE WAS HIGHLY INFLUENTIAL IN THE DEVELOPMENT OF COMPUTER SCIENCE PROVIDING A FORMALIZATION OF THE CONCEPTS OF ALGORITHM AND COMPUTATION WITH THE TURING MACHINE WHICH CAN BE CONSIDERED A MODEL OF A GENERAL PURPOSE COMPUTER TURING IS WIDELY CONSIDERED TO BE THE FATHER OF THEORETICAL COMPUTER SCIENCE AND ARTIFICIAL INTELLIGENCE  DURING THE SECOND WORLD WAR TURING WORKED AT BLETCHLEY PARK BRITAINS CODEBREAKING CENTER HE DEVISED A NUMBER OF TECHNIQUES FOR BREAKING GERMAN CIPHERS INCLUDING IMPROVEMENTS TO THE PREWAR POLISH BOMBE METHOD AND AN ELECTROMECHANICAL MACHINE THAT COULD FIND SETTINGS FOR THE ENIGMA MACHINE TURING PLAYED A PIVOTAL ROLE IN CRACKING INTERCEPTED CODED MESSAGES THAT ENABLED THE ALLIES TO DEFEAT THE NAZIS IN MANY CRUCIAL ENGAGEMENTS INCLUDING THE BATTLE OF THE ATLANTIC IT HAS BEEN ESTIMATED THAT THIS WORK SHORTENED THE WAR IN EUROPE BY AS MANY AS TWO TO FOUR YEARS  AFTER THE WAR TURING WAS PROSECUTED FOR HOMOSEXUAL ACTS WHEN SUCH BEHAVIOR WAS STILL CRIMINALIZED IN THE UK TURING DIED FROM CYANIDE POISONING AN INQUEST DETERMINED HIS DEATH AS SUICIDE
